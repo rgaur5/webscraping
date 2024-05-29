@@ -96,3 +96,54 @@ def add_nonduplicate_row(table_name, col_name_list, col_type_list, values_to_add
     
     mycursor.execute(sql, vals) #runs sql above
     close_cursor_connection(mycursor, mydb) #closes connection to mycursor
+
+#Function to move created date and updated date to the end of the table
+def move_columns_to_end(table_name):
+    mycursor = mydb.cursor() #establishes cursor
+    try:
+        #get all columns from the table
+        mycursor.execute(f"SHOW COLUMNS FROM {table_name};") 
+        columns = mycursor.fetchall()
+        if columns:
+            last_col_name = columns[-1][0] # the last column name will be the last entry in the result set
+        else:
+            last_col_name = None #will resilt in error being raised
+
+        # move created_date to after last col name and updated_date to after created_date at the end of the table
+        mycursor.execute(f"ALTER TABLE {table_name} MODIFY COLUMN `created_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER `{last_col_name}`;")
+        mycursor.execute(f"ALTER TABLE {table_name} MODIFY COLUMN `updated_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `created_date`;")
+    except mysql.connector.Error as err:
+        print(f"Error in move_columns_to_end: {err}") #error handling
+    finally:
+        close_cursor_connection(mycursor, mydb)  #closes connection to mycursor
+
+#Function to get the first n rows from a specific column in a specific table.
+def get_first_n_rows(table_name, column_name, n):
+    try:
+        mycursor = mydb.cursor() #establishes cursor
+        query = f"SELECT `{column_name}` FROM `{table_name}` LIMIT %s;" #get first %s columns of column column_name from table_name
+        mycursor.execute(query, (n,)) #the limit is n
+        results = mycursor.fetchall() 
+        values = [result[0] for result in results] #list of all datapoints collected
+        return values
+    except mysql.connector.Error as err:
+        print(f"Error in get_first_n_rows: {err}") #error handling
+    finally:
+        close_cursor_connection(mycursor, mydb) #closes connection to mycursor
+
+#Function adds flag column to end of a table
+def add_flag_column(table_name, column_name):
+    mycursor = mydb.cursor()
+    try:
+        mycursor.execute(f"SHOW COLUMNS FROM `{table_name}` LIKE '{column_name}';")  #check if the column already exists
+        column_exists = mycursor.fetchone()
+
+        if not column_exists: #if it doesn't exist
+            #add the column and set all values to 0
+            mycursor.execute(f"ALTER TABLE `{table_name}` ADD COLUMN `{column_name}` INT DEFAULT 0;")
+        else: #if it does exist
+            mycursor.execute(f"UPDATE `{table_name}` SET `{column_name}` = 0 WHERE `{column_name}` IS NULL;") #set all not-already-defined rows to have a flag 0
+    except mysql.connector.Error as err:
+        print(f"Error in add_flag_column: {err}")
+    finally:
+        close_cursor_connection(mycursor, mydb)

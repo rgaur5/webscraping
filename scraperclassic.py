@@ -16,11 +16,21 @@
 import scrapy #import scrapy module allows us to call web-scraping from the terminal and sets up response/request structure for this functionality
 import requests #import requests module allows us to make HTTP GET requests to desired site
 from bs4 import BeautifulSoup #Beautiful soup enables parsing of HTML returned by requests
-from sql_query_builder import create_table, create_unique_identifier, add_nonduplicate_row #need these for dynamic SQL queris; functions' precise descriptions can be found in sql_query_builder
+from sql_query_builder import create_table, create_unique_identifier, add_nonduplicate_row, move_columns_to_end,add_flag_column #need these for dynamic SQL queris; functions' precise descriptions can be found in sql_query_builder
+from scrapy import signals #signals enables us to run spider_closed when the scraper completes
+from establish_db_connection import mydb #mydb lets us access our database created in establish_db_connection
 
 class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper through terminal (see above)
     name = 'scraperclassic' #string matches filename, necessary formatting to run scraper through terminal (see above)
     allowed_domains = ["classic.com"] #classic.com is the only link visited, necessary formatting to run scraper through terminal (see above)
+    table_name = 'Sites' 
+
+    @classmethod
+    def from_crawler(cls, crawler, *args, **kwargs): #method creates signal when scrapy scraping is done, allows spider_closed to run when scraping ends
+        spider = super(scraperclassicSpider, cls).from_crawler(crawler, *args, **kwargs)
+        crawler.signals.connect(spider.spider_closed, signal=signals.spider_closed)
+        return spider
+
 
     def start_requests(self): #function creates Scrapy requests to all the pages in pagination of classic.com/data
         urls = ["https://www.classic.com/data"] #list of urls, expanded later in code
@@ -47,7 +57,7 @@ class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper 
     def parse(self, response): #this function initializes the table Sites, gathers data, and inserts that data in the table for each pagination
 
         #INITIALIZING TABLE (ASSUMING DB EXISTS)
-        table_name = 'Sites' 
+        table_name = self.table_name
         
         column_names = ['Source', 'Link', 'Sellertype'] #list of column names
         column_types = ['VARCHAR(255)', 'VARCHAR(255)', 'VARCHAR(255)'] #all column names are VARCHAR(255) in SQL, use this list in sql queries later
@@ -86,4 +96,13 @@ class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper 
         if len(link_list) == len(source_list) == len(type_list): #if all the lists are equal length
             for i in range(len(link_list)): #loop through the lists
                 add_nonduplicate_row(table_name, column_names, column_types, [source_list[i], link_list[i], type_list[i]], "x") #add non-unique non-duplicate rows for each seller
-        
+    
+    def spider_closed(self, spider): #function runs after all scraping ends; closes mydb connection and moves updated/created cols to end of table
+        try:
+            table_name = self.table_name
+            move_columns_to_end(f"{table_name}") #running move columns to end from sql_query_builder.py with class variable table_name
+            add_flag_column(f"{table_name}",'Flag')
+        except Exception as e:
+            print(f"Error in spider_closed: {e}")
+        finally:
+            mydb.close()
