@@ -73,29 +73,75 @@ def add_column_if_not_exists(table_name, new_col_name, new_col_type, unique_bool
 #Function to add a row to the table
 # Note: This function will add a column to the table if the inserted row has more columns than currently exist in the table.
 # Note: If unique_identifier is not a column name in your table, all add_column_if_not_exists will always add non-unique column
+# def add_nonduplicate_row(table_name, col_name_list, col_type_list, values_to_add_list, unique_identifier):
+#     mycursor = mydb.cursor() #establishes cursor
+#     if (len(col_name_list) != len(values_to_add_list)): #checking that column names and values to add are of equal length
+#         raise ValueError("length of column_name_list must equal length of values_to_add_list")
+#     if (len(col_name_list) != len(col_type_list)): #checking that names and types are of equal length
+#         raise ValueError("length of col_name_list must equal length of col_type_list")
+    
+#     for i in range(len(col_name_list)): #looping through length of all the lists
+#         if (col_name_list[i] == unique_identifier):
+#             add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], True) #add unique column
+#         else:
+#             add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], False) #add non-unique column
+        
+        
+
+#     col_names_comma_separated = ", ".join(f"`{col}`" for col in col_name_list) #conjoins column names with , and space
+#     temp = ", ".join('%s' for x in range(len(values_to_add_list)))  #conjoins %s x number of times with , and space
+
+#     sql = f"INSERT IGNORE INTO {table_name} ({col_names_comma_separated}) VALUES ({temp})" #inserts row into the table unless its a duplicate value
+#     vals = tuple(str(value) for value in values_to_add_list) #vals is a tuple of all the values in values_to_add_list
+    
+#     mycursor.execute(sql, vals) #runs sql above
+#     close_cursor_connection(mycursor, mydb) #closes connection to mycursor
+
 def add_nonduplicate_row(table_name, col_name_list, col_type_list, values_to_add_list, unique_identifier):
-    mycursor = mydb.cursor() #establishes cursor
-    if (len(col_name_list) != len(values_to_add_list)): #checking that column names and values to add are of equal length
-        raise ValueError("length of column_name_list must equal length of values_to_add_list")
-    if (len(col_name_list) != len(col_type_list)): #checking that names and types are of equal length
-        raise ValueError("length of col_name_list must equal length of col_type_list")
-    
-    for i in range(len(col_name_list)): #looping through length of all the lists
-        if (col_name_list[i] == unique_identifier):
-            add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], True) #add unique column
+    mycursor = mydb.cursor()
+
+    # Check lengths of input lists
+    if len(col_name_list) != len(values_to_add_list):
+        raise ValueError("Length of column_name_list must equal length of values_to_add_list")
+    if len(col_name_list) != len(col_type_list):
+        raise ValueError("Length of col_name_list must equal length of col_type_list")
+
+    # Ensure all columns exist in the table
+    for i in range(len(col_name_list)):
+        if col_name_list[i] == unique_identifier:
+            add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], True)
         else:
-            add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], False) #add non-unique column
-        
-        
+            add_column_if_not_exists(table_name, col_name_list[i], col_type_list[i], False)
 
-    col_names_comma_separated = ", ".join(f"`{col}`" for col in col_name_list) #conjoins column names with , and space
-    temp = ", ".join('%s' for x in range(len(values_to_add_list)))  #conjoins %s x number of times with , and space
+    # Get existing columns in the table
+    mycursor.execute(f"SHOW COLUMNS FROM `{table_name}`")
+    existing_columns = set(row[0] for row in mycursor.fetchall())
 
-    sql = f"INSERT IGNORE INTO {table_name} ({col_names_comma_separated}) VALUES ({temp})" #inserts row into the table unless its a duplicate value
-    vals = tuple(str(value) for value in values_to_add_list) #vals is a tuple of all the values in values_to_add_list
-    
-    mycursor.execute(sql, vals) #runs sql above
-    close_cursor_connection(mycursor, mydb) #closes connection to mycursor
+    # Prepare to insert values
+    col_names_comma_separated = ", ".join(f"`{col}`" for col in col_name_list)
+    temp = ", ".join('%s' for _ in range(len(values_to_add_list)))
+
+    # Insert row with provided values
+    sql = f"INSERT IGNORE INTO {table_name} ({col_names_comma_separated}) VALUES ({temp})"
+    vals = tuple(str(value) for value in values_to_add_list)
+    mycursor.execute(sql, vals)
+
+
+    col_name_list.append('id')
+    col_name_list.append('created_date')
+    col_name_list.append('updated_date')
+
+    last_id = mycursor.lastrowid
+
+    # Insert NULLs for any new columns not in the provided values
+    for col in existing_columns - set(col_name_list): #for the columns that dont have any values as mentioned by values_to_add_list
+        mycursor.execute(f"UPDATE `{table_name}` SET `{col}` = NULL WHERE `id` = %s", (last_id,))
+
+    # Close cursor and connection
+    close_cursor_connection(mycursor, mydb)
+
+
+
 
 #Function to move created date and updated date to the end of the table
 def move_columns_to_end(table_name):
@@ -121,10 +167,11 @@ def move_columns_to_end(table_name):
 def get_first_n_rows(table_name, column_name, n):
     try:
         mycursor = mydb.cursor() #establishes cursor
-        query = f"SELECT `{column_name}` FROM `{table_name}` LIMIT %s;" #get first %s columns of column column_name from table_name
-        mycursor.execute(query, (n,)) #the limit is n
+        query = f"SELECT {column_name} FROM `{table_name}` WHERE `id` BETWEEN %s AND %s;" #get first %s columns of column column_name from table_name
+        mycursor.execute(query, (1,n)) #the limit is n
         results = mycursor.fetchall() 
         values = [result[0] for result in results] #list of all datapoints collected
+        print(f"TTT {values}")
         return values
     except mysql.connector.Error as err:
         print(f"Error in get_first_n_rows: {err}") #error handling

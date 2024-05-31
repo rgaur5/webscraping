@@ -79,7 +79,7 @@ class scraper427Spider(scrapy.Spider): #necessary formatting to run scraper thro
         try:
             table_name = self.table_name
             # print("EEEEEEEE doing post-scraping tasks")
-            move_columns_to_end(f"{table_name}") #running move columns to end from sql_query_builder.py with class variable table_name
+            # move_columns_to_end(f"{table_name}") #running move columns to end from sql_query_builder.py with class variable table_name
         except Exception as e:
             print(f"Error in spider_closed: {e}")
         finally:
