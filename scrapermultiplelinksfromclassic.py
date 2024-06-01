@@ -11,7 +11,7 @@ from sql_query_builder import create_table, add_nonduplicate_row, move_columns_t
 
 from establish_log import add_log, flag_toggle
 from datetime import datetime, timezone
-from scraper5links import baronsauctionsscrape1, barrettjacksonscrape2
+from scraper5links import baronsauctionsscrape1, barrettjacksonscrape2, garage427scrape3, bavarianscrape4, cassscrape5
 class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formatting to run scraper through terminal (see above)
     name = "scrapermultiplelinksfromclassic"
 
@@ -58,11 +58,18 @@ class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formattin
             #     print('running parse1')
             #     baronsauctionsscrape1(response.text, self.insert_table_name)
 
-            if (response.meta['url'] == "http://barrett-jackson.com"):
-                print('running parse2')
-                barrettjacksonscrape2(response.text, self.insert_table_name)
+            # if (response.meta['url'] == "http://barrett-jackson.com"):
+            #     print('running parse2')
+            #     barrettjacksonscrape2(response.text, self.insert_table_name)
             
 
+            # if (response.meta['url'] == "https://bavarianmotorsport.com/"):
+            #     print('running parse4')
+            #     bavarianscrape4(self.insert_table_name)
+                
+            if (response.meta['url'] == "https://cassandramotorsports.com/"):
+                print('running parse5')
+                cassscrape5(self.insert_table_name)    
 
 
 

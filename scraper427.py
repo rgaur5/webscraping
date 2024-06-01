@@ -20,7 +20,7 @@ from scrapy import signals #signals enables us to run spider_closed when the scr
 import re # re lets us parse inconsistent strings with consistent patterns
 from establish_db_connection import mydb #mydb lets us access our database created in establish_db_connection
 from sql_query_builder import create_table, add_nonduplicate_row, move_columns_to_end#need these for dynamic SQL queris; functions' precise descriptions can be found in sql_query_builder
-
+from scraper5links import garage427scrape3
 class scraper427Spider(scrapy.Spider): #necessary formatting to run scraper through terminal (see above)
     name = "scraper427" #string matches filename, necessary formatting to run scraper through terminal (see above)
     allowed_domains = ["427garage.com"] #427garage.com is the only link visited, necessary formatting to run scraper through terminal (see above)
@@ -52,29 +52,8 @@ class scraper427Spider(scrapy.Spider): #necessary formatting to run scraper thro
     def parse(self, response): #this function gathers all Car data and adds it to a table in a pre-defined database
         table_name = self.table_name
         create_table(table_name, ['Name'], ['VARCHAR(255)']) #creates table with only one column: Name
-
-        name = (response.css('title::text').getall())[0] #gets all names from the HTML, uncleaned
-        name = re.sub(r'\s*\|\s*427 Garage$', '', name) #cleans the names from the HTML
+        garage427scrape3(response, table_name)
         
-        db_dict = {"Name" : name} #creates dictionary with format column name : data
-
-        elements = response.css('div.col-xs-12.col-sm-6.col-md-12') # body of HTML containing all remaining Car data
-        for element in elements:
-            planet_spec_title = element.css('dt.planet-spec-title::text').get() #will be our column names (ie. Vin, Price, etc.)
-            lead_planet_value = element.css('dd.lead.planet-spec-value::text').get() #will be our values (ie. 67GHneF5, $55,000, etc.)
-
-            if('Price'.lower() in planet_spec_title.lower()): #if the column is Price
-                planet_spec_title = 'Price'
-                lead_planet_value = response.css('dd.lead.planet-price::text').get() #look for the price section in the HTML   
-            if lead_planet_value is None:
-                lead_planet_value = '-' # '-' is used as an indication of no value provided
-
-            db_dict[planet_spec_title] = lead_planet_value #adding column name and value for that row to the dictionary
-            print(planet_spec_title + ", " +lead_planet_value ) #print column and value
-        
-        col_type_list = ['VARCHAR(255)' for _ in range(len(db_dict.keys()))] #all of our columns (db_dict.keys() is list of columns) are strings of VARCHAR(255)
-        add_nonduplicate_row(table_name, list(db_dict.keys()), col_type_list, list(db_dict.values()), 'Vin') #adding non-duplicate rows using column names and values stored in db_dict; Vin is the unique identifier
-
     def spider_closed(self, spider): #function runs after all scraping ends; closes mydb connection and moves updated/created cols to end of table
         try:
             table_name = self.table_name

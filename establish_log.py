@@ -2,6 +2,11 @@ import mysql.connector #import mysql connector allows sending SQL commands to My
 import requests
 from establish_db_connection import mydb, close_cursor_connection
 from datetime import datetime, timezone
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36'}
 
 def create_log_table(): 
@@ -73,4 +78,36 @@ def req_get_log(url):
     response = session.send(prepared)
     updated_time = datetime.now(timezone.utc)
     add_log(request_text, response.text, response.status_code, created_time, updated_time)
+    return response
+
+def req_get_log_selenium(url, wait_seconds):
+    path_to_chrome_driver = '/Users/rishabhgaur/Downloads/chromedriver-mac-arm64/chromedriver' #if you get security issue opening, open manually with terminal first then proceed as usual
+    options = Options()
+    options.headless = True  #run in headless mode
+    service = ChromeService(executable_path=path_to_chrome_driver) 
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.get(url)
+    
+    # Wait for the page to fully load (adjust the sleep time as necessary)
+    time.sleep(wait_seconds)  # Adjust this delay as needed to ensure the page fully loads
+    
+    # Get the page source
+    response_content = driver.page_source
+    
+    # Close the driver
+    driver.quit()
+    
+    # Log the request
+    created_time = datetime.now(timezone.utc)
+    request_text = f'GET {url} HTTP/1.1'
+    updated_time = datetime.now(timezone.utc)
+    
+    add_log(request_text, response_content, 200, created_time, updated_time)
+    
+    # Mock a response object
+    response = requests.models.Response()
+    response.status_code = 200
+    response._content = response_content.encode('utf-8')
+    response.url = url
+    
     return response
