@@ -105,9 +105,9 @@ def scrape2extract_car_details(car_links, table_name):
             soup = BeautifulSoup(response.content, 'html.parser')
             
             text_content = soup.find('strong').get_text()
-            parts = text_content.split('\xa0')  # \xa0 is the unicode representation of &nbsp;
+            parts = text_content.split('\xa0')  # \xa0 is unicode representation of &nbsp;
             if len(parts) > 1:
-                name_after_nbsp = parts[1].strip()  #use strip to remove any leading/trailing whitespace
+                name_after_nbsp = parts[1].strip()  #using strip to remove any whitespace
                 id_words.append(name_after_nbsp)
             td_tags = soup.find_all('td', style=lambda value: value and 'width: 40%' in value)
             for td_tag in td_tags:

@@ -16,7 +16,7 @@ class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formattin
     name = "scrapermultiplelinksfromclassic"
 
     custom_settings = {
-        'HTTPERROR_ALLOWED_CODES': [200, 403, 404],  # Add other status codes you want to handle
+        'HTTPERROR_ALLOWED_CODES': [200, 403, 404],  
     }
 
     def __init__(self, *args, **kwargs):
@@ -26,6 +26,7 @@ class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formattin
         self.current_id = 1
         super(scrapermultiplelinksfromclassicSpider, self).__init__(*args, **kwargs)
         self.links = get_first_n_rows(self.extract_table_name, self.extract_table_col, self.exclusive_upper_limit_on_number_of_links_to_scrape - 1)
+        self.flags = get_first_n_rows(self.extract_table_name, 'Flag', self.exclusive_upper_limit_on_number_of_links_to_scrape - 1)
         self.allowed_domains = list(set(re.search(r'https?://(?:www\.)?([^/]+)', link).group(1) for link in self.links if re.search(r'https?://(?:www\.)?([^/]+)', link)))
         print(f"\n EEE {self.allowed_domains} \n " )
         self.insert_table_name = 'Cars'
@@ -42,10 +43,19 @@ class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formattin
             raise ValueError("current id is greater than or equal to our exclusive_upper_limit_on_number_of_links_to_scrape")
     
     def parse(self, response): 
+        # print (f"\n FLAG {self.flags[0]} \n")
         extract_table_name = self.extract_table_name
         updated_time = datetime.now(timezone.utc)
         created_time = response.meta['created_time']
-        add_log(response.request.url, response.body, response.status, created_time, updated_time) 
+
+        request = response.request
+        request_text = '{}\n{}\n\n{}'.format(
+        f'{request.method} {request.url} HTTP/1.1',
+        '\n'.join(f'{k}: {v}' for k, v in request.headers.items()),
+        request.body or ''
+    )
+
+        add_log(request_text, response.body, response.status, created_time, updated_time) 
         
         if response.status != 200:
             print(f" \n {response.meta['url']} raised 403 error. Unable to access link. \n")
@@ -54,25 +64,39 @@ class scrapermultiplelinksfromclassicSpider(scrapy.Spider): #necessary formattin
             print(f"\n {response.meta['url']} raised 200 status. \n")
 
             #handle scraping for each url
-            # if (response.meta['url'] == "http://barons-auctions.com"):
-            #     print('running parse1')
-            #     baronsauctionsscrape1(response.text, self.insert_table_name)
+        if(self.flags[self.current_id] == 0):
+            print(response.meta['url'], "has flag 0. starting scrape.")
+            if (response.meta['url'] == "http://barons-auctions.com"):
+                print('running parse1')
+                baronsauctionsscrape1(response.text, self.insert_table_name)
+                mydb.commit()
+        if(self.flags[self.current_id] == 0):
+            print(response.meta['url'], "has flag 0. starting scrape.")
+            if (response.meta['url'] == "http://barrett-jackson.com"):
+                print('running parse2')
+                barrettjacksonscrape2(response.text, self.insert_table_name)
+                mydb.commit()
+        if(self.flags[self.current_id] == 0):
+            print(response.meta['url'], "has flag 0. starting scrape.")
+            if (response.meta['url'] == "https://427garage.com/"):
+                print('running parse3')
+                garage427scrape3(response, self.insert_table_name)
+                mydb.commit()
 
-            # if (response.meta['url'] == "http://barrett-jackson.com"):
-            #     print('running parse2')
-            #     barrettjacksonscrape2(response.text, self.insert_table_name)
-            
-
-            # if (response.meta['url'] == "https://bavarianmotorsport.com/"):
-            #     print('running parse4')
-            #     bavarianscrape4(self.insert_table_name)
+        if(self.flags[self.current_id] == 0):
+            print(response.meta['url'], "has flag 0. starting scrape.")
+            if (response.meta['url'] == "https://bavarianmotorsport.com/"):
+                print('running parse4')
+                bavarianscrape4(self.insert_table_name)
                 
+        if(self.flags[self.current_id] == 0):
+            print(response.meta['url'], "has flag 0. starting scrape.")
             if (response.meta['url'] == "https://cassandramotorsports.com/"):
                 print('running parse5')
                 cassscrape5(self.insert_table_name)    
 
-
-
+            mydb.commit()
+            
             flag_toggle(extract_table_name, response.meta['url'], 'Link')
             self.current_id += 1
             if self.current_id < self.exclusive_upper_limit_on_number_of_links_to_scrape:
