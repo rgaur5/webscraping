@@ -8,32 +8,32 @@
 """
 
 import mysql.connector #import mysql connector allows sending SQL commands to MySQL database
-#PART 1: Function to create database with name web_scraping
-def create_db_web_scraping(): #function to create the database, if the database exists access it using mydb
+#PART 1: Function to create database with name web_scraper
+def create_db_web_scraper(): #function to create the database, if the database exists access it using mydb
     temp = mysql.connector.connect( #create temp connector (use mydb if you want to access the database)
     host="localhost",
     user="root",
-    password="Gaur2023!"
+    password=""
     )
 
     cursor = temp.cursor()
 
-    cursor.execute("CREATE DATABASE IF NOT EXISTS web_scraping") # create a new database if not exists already #eee
+    cursor.execute("CREATE DATABASE IF NOT EXISTS web_scraper") # create a new database if not exists already #eee
 
     
     cursor.close() # close the cursor
     temp.close() #close temporary connection
 
-#PART 2: Variable to access web_scraping 
+#PART 2: Variable to access web_scraper 
 #Do 'from establish_db_connection import mydb' to get connection to database
-create_db_web_scraping() #ensures db is created before attempting connection whenever mydb is imported
+create_db_web_scraper() #ensures db is created before attempting connection whenever mydb is imported
 
 #DO NOT CLOSE MYDB UNTIL ALL SCRAPING IS COMPLETE
 mydb = mysql.connector.connect( #creates connector named mydb which will be used often throughout this project
   host="localhost",
   user="root",
-  password="Gaur2023!",
-  database="web_scraping"
+  password="",
+  database="web_scraper"
 )
 
 

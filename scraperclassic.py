@@ -2,7 +2,7 @@
  * @category : Functionality
  * @author : Rishabh Gaur
  * @created date : May 28, 2024
- * @updated date : May 28, 2024
+ * @updated date : June 4, 2024
  * @company : Birbals Inc
  * @description : Web Scraping for the car sellers provided by classic.com; collecting Source, Link, and Sellertype in a database via Scrapy
 """
@@ -48,9 +48,11 @@ class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper 
             print(complete_url)
 
         del urls[0] #removes https://www.classic.com/data, we will only visit the pages in the pagination
+        urls.sort(key=lambda url: int(url.split('=')[-1]))  #ensure URLs are sorted 1-12,, NOT FUNCTIONAL in making the links appear in consistent order
 
         #create scrapy request to parse for all the urls in our list
         for url in urls:
+            print("fff", url)
             yield scrapy.Request(url=url, headers=headers, callback=self.parse)
 
 
@@ -69,7 +71,7 @@ class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper 
         link_list = []
         source_list = []
         type_list = []
-
+        
         sourceandlink = response.css('a.typography-body1[rel="noopener"]') #this section of HTMl contains both the source and link for each respective seller
 
         #gathering and appending all the links and sources from each body of HTML gathered in sourceandlink
@@ -91,17 +93,40 @@ class scraperclassicSpider(scrapy.Spider): #necessary formatting to run scraper 
         
         type_list = type_list[6:len(type_list)-2]#the HTML bodies we captured for types above contain unnecessary data before index 6 and in the last 3 indices
         
+
+        #specific entries to always appear first
+        predefined_entries = [
+            ('Barons', 'http://barons-auctions.com', 'Auction'),
+            ('Barrett-Jackson', 'http://barrett-jackson.com', 'Auction'),
+            ('427 Garage', 'https://427garage.com/', 'Dealer'),
+            ('Bavarian Motorsport', 'https://bavarianmotorsport.com/', 'Dealer'),
+            ('GR Auto Gallery', 'https://grautogallery.com/', 'Dealer')
+        ]
+
+        combined_list = sorted(zip(source_list, link_list, type_list))#ensure same order of entries every time file is run, NOT FUNCTIONAL
         
+        #filter out predefined entries from combined_list to avoid duplication
+        filtered_combined_list = [
+            (source, link, typee) for source, link, typee in combined_list
+            if (source, link, typee) not in predefined_entries
+        ]
+
+        combined_list = predefined_entries + filtered_combined_list #add predefined entries to the beginning
+
         #INSERTING DATA
-        if len(link_list) == len(source_list) == len(type_list): #if all the lists are equal length
-            for i in range(len(link_list)): #loop through the lists
-                add_nonduplicate_row(table_name, column_names, column_types, [source_list[i], link_list[i], type_list[i]], "x") #add non-unique non-duplicate rows for each seller
+        if len(link_list) == len(source_list) == len(type_list):
+            for source, link, typee in combined_list:
+                if ('id' in column_names):
+                    column_names.remove('created_date')
+                    column_names.remove('updated_date')
+                    column_names.remove('id')
+                add_nonduplicate_row(table_name, column_names, column_types, [source, link, typee]) #add non-unique non-duplicate rows for each seller
     
     def spider_closed(self, spider): #function runs after all scraping ends; closes mydb connection and moves updated/created cols to end of table
         try:
             table_name = self.table_name
             move_columns_to_end(f"{table_name}") #running move columns to end from sql_query_builder.py with class variable table_name
-            add_flag_column(f"{table_name}",'Flag')
+            add_flag_column(f"{table_name}",'scraping_status')
         except Exception as e:
             print(f"Error in spider_closed: {e}")
         finally:
